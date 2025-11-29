@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,25 +8,30 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; background-color: #f9f9f9; color: #333; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .header { font-size: 1.1em; font-weight: bold; color: #4a90e2; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .header { font-size: 1.1em; font-weight: bold; color: #7d5fff; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .badge { font-size: 0.7em; background: #eee; padding: 2px 6px; border-radius: 4px; color: #666; font-weight: normal; }
         .content { line-height: 1.6; font-size: 0.95em; white-space: pre-wrap; }
         .input-group { margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 70%; }
-        button { padding: 8px 12px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 65%; }
+        button { padding: 8px 12px; background: #7d5fff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .hidden { display: none; }
-        .error { color: red; font-size: 0.9em; margin-top: 10px; }
+        .error { color: #d63031; font-size: 0.9em; margin-top: 10px; background: #fff0f0; padding: 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="header">🤖 AI 深度释义</div>
-    <div id="result" class="content">正在准备...</div>
+    <div class="header">
+        <span>🤖 Kimi 深度释义</span>
+        <span class="badge">SiliconFlow</span>
+    </div>
+    
+    <div id="result" class="content">正在准备连接...</div>
     
     <div id="setup-area" class="input-group hidden">
-        <p style="font-size:0.8em; color:#666;">首次使用需配置 API Key (保存在本地，不会上传)</p>
-        <input type="password" id="apiKeyInput" placeholder="请输入 sk-xxxx 开头的密钥">
-        <button onclick="saveKey()">保存</button>
+        <p style="font-size:0.8em; color:#666;">请输入 SiliconFlow 密钥 (sk-开头)<br>密钥仅保存在本地，不会上传 GitHub</p>
+        <input type="password" id="apiKeyInput" placeholder="sk-gigbzfj...">
+        <button onclick="saveKey()">保存并连接</button>
     </div>
     
     <div style="margin-top:10px; font-size:0.8em; text-align:right;">
@@ -34,14 +40,17 @@
 </div>
 
 <script>
-    // --- 配置 ---
-    const API_URL = 'https://api.openai.com/v1/chat/completions'; // 如果用中转，请修改此链接
-    // -----------
+    // --- 核心配置区域 (已修改为你提供的参数) ---
+    const CONFIG = {
+        apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
+        model: 'moonshotai/Kimi-K2-Thinking'
+    };
+    // ----------------------------------------
 
     const resultDiv = document.getElementById('result');
     const setupArea = document.getElementById('setup-area');
 
-    // 获取 URL 参数中的单词
+    // 1. 获取 URL 参数中的单词
     function getQueryVariable(variable) {
         var query = window.location.search.substring(1);
         var vars = query.split("&");
@@ -52,77 +61,84 @@
         return null;
     }
 
-    // 保存 Key 到浏览器
+    // 2. 保存 Key 到浏览器本地存储 (LocalStorage)
     function saveKey() {
-        const input = document.getElementById('apiKeyInput').value;
+        const input = document.getElementById('apiKeyInput').value.trim();
         if(input.startsWith('sk-')) {
-            localStorage.setItem('openai_key', input);
+            localStorage.setItem('sf_key', input);
             setupArea.classList.add('hidden');
-            location.reload(); // 刷新页面重新加载
+            location.reload(); 
         } else {
-            alert('密钥格式看起来不对，通常以 sk- 开头');
+            alert('密钥格式不对，必须以 sk- 开头');
         }
     }
 
-    // 清除 Key
     function clearKey() {
-        if(confirm('确定要清除保存的密钥吗？')) {
-            localStorage.removeItem('openai_key');
+        if(confirm('要清除密钥吗？')) {
+            localStorage.removeItem('sf_key');
             location.reload();
         }
     }
 
     async function main() {
-        const apiKey = localStorage.getItem('openai_key');
+        const apiKey = localStorage.getItem('sf_key');
         const word = getQueryVariable("q");
 
-        // 1. 检查是否有 Key
+        // 检查 Key
         if (!apiKey) {
-            resultDiv.innerHTML = "请在下方设置您的 API Key 以开始使用。";
+            resultDiv.innerHTML = "请在下方输入您的 API Key。";
             setupArea.classList.remove('hidden');
             return;
         }
 
-        // 2. 检查是否有单词
+        // 检查单词
         if (!word) {
-            resultDiv.innerHTML = "等待查询... (请在欧路词典中测试)";
+            resultDiv.innerHTML = "等待查询... <br><span style='font-size:0.8em;color:#888'>请在欧路词典中测试，或在网址后加上 ?q=单词</span>";
             return;
         }
 
-        resultDiv.innerHTML = "🔍 正在思考 " + word + " 的含义...";
+        resultDiv.innerHTML = "🤔 Kimi 正在思考 <b>" + word + "</b> 的含义...";
 
-        // 3. 发送请求
+        // 发送请求
         try {
-            const response = await fetch(API_URL, {
+            const response = await fetch(CONFIG.apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
+                    model: CONFIG.model,
                     messages: [
                         {
                             role: "system", 
-                            content: "你是一个专业的英语学习助手。请简明扼要地解释用户提供的英语单词。包含：1. 中文释义 2. 词根词缀分析（如果有）3. 一个地道的英文例句。使用HTML标签<b>加粗</b>重点。"
+                            content: "你是一个专业的英语词典助手。请解释用户的单词。结构要求：\n1. 【核心释义】：中文含义。\n2. 【词源分析】：(如有)简单的词根词缀。\n3. 【场景例句】：1个地道的英文例句附带中文翻译。\n请使用HTML的<b>标签加粗关键点，保持排版整洁。"
                         },
-                        {role: "user", content: word}
-                    ]
+                        {role: "user", content: `解释单词: ${word}`}
+                    ],
+                    stream: false
                 })
             });
 
             const data = await response.json();
 
             if (data.error) {
-                throw new Error(data.error.message);
+                throw new Error(data.error.message || "API 返回错误");
             }
             
             if (data.choices && data.choices.length > 0) {
-                resultDiv.innerHTML = data.choices[0].message.content.replace(/\n/g, '<br>');
+                // 处理换行，让排版更好看
+                let content = data.choices[0].message.content;
+                content = content.replace(/\n/g, '<br>');
+                content = content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // 处理 Markdown 加粗
+                resultDiv.innerHTML = content;
+            } else {
+                resultDiv.innerHTML = "未获取到内容，请检查网络。";
             }
 
         } catch (error) {
-            resultDiv.innerHTML = `<span class="error">出错啦: ${error.message}</span><br>请检查密钥或网络连接 (国内需使用中转URL)。`;
+            console.error(error);
+            resultDiv.innerHTML = `<div class="error"><b>出错了:</b> ${error.message}<br><br>可能原因：<br>1. 密钥无效<br>2. 免费额度已用完<br>3. 跨域限制 (CORS)</div>`;
         }
     }
 
