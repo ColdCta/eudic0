@@ -6,51 +6,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 词典助手</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; background-color: #f9f9f9; color: #333; }
+        body { font-family: sans-serif; padding: 15px; background-color: #f9f9f9; color: #333; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .header { font-size: 1.1em; font-weight: bold; color: #7d5fff; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .badge { font-size: 0.7em; background: #eee; padding: 2px 6px; border-radius: 4px; color: #666; font-weight: normal; }
-        .content { line-height: 1.6; font-size: 0.95em; white-space: pre-wrap; }
-        .input-group { margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 65%; }
-        button { padding: 8px 12px; background: #7d5fff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .hidden { display: none; }
-        .error { color: #d63031; font-size: 0.9em; margin-top: 10px; background: #fff0f0; padding: 10px; border-radius: 4px; }
+        .header { font-size: 1.1em; font-weight: bold; color: #7d5fff; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .content { line-height: 1.6; white-space: pre-wrap; }
+        
+        /* 输入区域样式 */
+        .input-group { margin-top: 20px; border: 2px dashed #7d5fff; padding: 15px; background: #f0f0ff; border-radius: 8px; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+        button { padding: 10px 15px; background: #7d5fff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
+        
+        /* 状态类 */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="header">
-        <span>🤖 Kimi 深度释义</span>
-        <span class="badge">SiliconFlow</span>
-    </div>
+    <div class="header">🤖 Kimi 助手 (SiliconFlow)</div>
     
-    <div id="result" class="content">正在准备连接...</div>
+    <div id="result" class="content">准备就绪...</div>
     
-    <div id="setup-area" class="input-group hidden">
-        <p style="font-size:0.8em; color:#666;">请输入 SiliconFlow 密钥 (sk-开头)<br>密钥仅保存在本地，不会上传 GitHub</p>
+    <div id="setup-area" class="input-group">
+        <p style="margin-top:0; font-weight:bold;">⚙️ 首次配置</p>
+        <p style="font-size:0.8em; color:#666; margin-bottom:10px;">请输入 SiliconFlow 密钥 (sk-开头)：</p>
         <input type="password" id="apiKeyInput" placeholder="sk-gigbzfj...">
-        <button onclick="saveKey()">保存并连接</button>
+        <button onclick="saveKey()">保存密钥并连接</button>
+        <p id="status-msg" style="font-size:0.8em; color:red;"></p>
     </div>
     
-    <div style="margin-top:10px; font-size:0.8em; text-align:right;">
-        <a href="#" onclick="clearKey()" style="color:#999; text-decoration:none;">重置密钥</a>
+    <div style="margin-top:15px; font-size:0.8em; text-align:right;">
+        <a href="#" onclick="clearKey()" style="color:#999;">重置/更换密钥</a>
     </div>
 </div>
 
 <script>
-    // --- 核心配置区域 (已修改为你提供的参数) ---
+    // --- 配置 ---
     const CONFIG = {
         apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
         model: 'moonshotai/Kimi-K2-Thinking'
     };
-    // ----------------------------------------
-
+    
+    // --- 逻辑 ---
     const resultDiv = document.getElementById('result');
     const setupArea = document.getElementById('setup-area');
+    const statusMsg = document.getElementById('status-msg');
 
-    // 1. 获取 URL 参数中的单词
+    // 保存 Key
+    function saveKey() {
+        const input = document.getElementById('apiKeyInput').value.trim();
+        if(!input) {
+            statusMsg.innerText = "密钥不能为空";
+            return;
+        }
+        try {
+            localStorage.setItem('sf_key', input);
+            statusMsg.innerText = "保存成功！正在刷新...";
+            setTimeout(() => location.reload(), 500);
+        } catch (e) {
+            statusMsg.innerText = "保存失败(浏览器限制): " + e.message;
+        }
+    }
+
+    // 清除 Key
+    function clearKey() {
+        if(confirm('确定要清除密钥吗？')) {
+            localStorage.removeItem('sf_key');
+            location.reload();
+        }
+    }
+
+    // 获取 URL 参数
     function getQueryVariable(variable) {
         var query = window.location.search.substring(1);
         var vars = query.split("&");
@@ -61,84 +87,62 @@
         return null;
     }
 
-    // 2. 保存 Key 到浏览器本地存储 (LocalStorage)
-    function saveKey() {
-        const input = document.getElementById('apiKeyInput').value.trim();
-        if(input.startsWith('sk-')) {
-            localStorage.setItem('sf_key', input);
-            setupArea.classList.add('hidden');
-            location.reload(); 
-        } else {
-            alert('密钥格式不对，必须以 sk- 开头');
-        }
-    }
-
-    function clearKey() {
-        if(confirm('要清除密钥吗？')) {
-            localStorage.removeItem('sf_key');
-            location.reload();
-        }
-    }
-
     async function main() {
-        const apiKey = localStorage.getItem('sf_key');
+        let apiKey = null;
+        try {
+            apiKey = localStorage.getItem('sf_key');
+        } catch (e) {
+            console.error("无法读取 LocalStorage");
+        }
+
         const word = getQueryVariable("q");
 
-        // 检查 Key
-        if (!apiKey) {
-            resultDiv.innerHTML = "请在下方输入您的 API Key。";
-            setupArea.classList.remove('hidden');
-            return;
-        }
-
-        // 检查单词
-        if (!word) {
-            resultDiv.innerHTML = "等待查询... <br><span style='font-size:0.8em;color:#888'>请在欧路词典中测试，或在网址后加上 ?q=单词</span>";
-            return;
-        }
-
-        resultDiv.innerHTML = "🤔 Kimi 正在思考 <b>" + word + "</b> 的含义...";
-
-        // 发送请求
-        try {
-            const response = await fetch(CONFIG.apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: CONFIG.model,
-                    messages: [
-                        {
-                            role: "system", 
-                            content: "你是一个专业的英语词典助手。请解释用户的单词。结构要求：\n1. 【核心释义】：中文含义。\n2. 【词源分析】：(如有)简单的词根词缀。\n3. 【场景例句】：1个地道的英文例句附带中文翻译。\n请使用HTML的<b>标签加粗关键点，保持排版整洁。"
-                        },
-                        {role: "user", content: `解释单词: ${word}`}
-                    ],
-                    stream: false
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error.message || "API 返回错误");
-            }
+        // 1. 如果有 Key，隐藏输入框，开始查词
+        if (apiKey) {
+            setupArea.classList.add('hidden'); // 只有这里才会隐藏它
             
-            if (data.choices && data.choices.length > 0) {
-                // 处理换行，让排版更好看
-                let content = data.choices[0].message.content;
-                content = content.replace(/\n/g, '<br>');
-                content = content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // 处理 Markdown 加粗
-                resultDiv.innerHTML = content;
-            } else {
-                resultDiv.innerHTML = "未获取到内容，请检查网络。";
+            if (!word) {
+                resultDiv.innerHTML = "等待查词... (请在欧路词典中测试)";
+                return;
             }
 
-        } catch (error) {
-            console.error(error);
-            resultDiv.innerHTML = `<div class="error"><b>出错了:</b> ${error.message}<br><br>可能原因：<br>1. 密钥无效<br>2. 免费额度已用完<br>3. 跨域限制 (CORS)</div>`;
+            resultDiv.innerHTML = "🤔 Kimi 正在思考 <b>" + word + "</b> ...";
+            
+            // 开始请求
+            try {
+                const response = await fetch(CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: CONFIG.model,
+                        messages: [
+                            {
+                                role: "system", 
+                                content: "你是一个英语学习专家。请简洁地解释该单词：\n1. 中文定义\n2. 词源/记忆法\n3. 1个精简例句\n用<b>加粗</b>重点。"
+                            },
+                            {role: "user", content: word}
+                        ]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error.message);
+                if (data.choices && data.choices.length > 0) {
+                    let text = data.choices[0].message.content;
+                    resultDiv.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                }
+
+            } catch (err) {
+                resultDiv.innerHTML = `<span style="color:red">请求失败: ${err.message}</span>`;
+            }
+
+        } else {
+            // 2. 如果没有 Key，保持输入框显示，提示用户
+            resultDiv.innerHTML = "请先配置密钥 👇";
         }
     }
 
