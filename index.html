@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 词典助手</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px; background-color: #f9f9f9; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .header { font-size: 1.1em; font-weight: bold; color: #4a90e2; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .content { line-height: 1.6; font-size: 0.95em; white-space: pre-wrap; }
+        .input-group { margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 70%; }
+        button { padding: 8px 12px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .hidden { display: none; }
+        .error { color: red; font-size: 0.9em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">🤖 AI 深度释义</div>
+    <div id="result" class="content">正在准备...</div>
+    
+    <div id="setup-area" class="input-group hidden">
+        <p style="font-size:0.8em; color:#666;">首次使用需配置 API Key (保存在本地，不会上传)</p>
+        <input type="password" id="apiKeyInput" placeholder="请输入 sk-xxxx 开头的密钥">
+        <button onclick="saveKey()">保存</button>
+    </div>
+    
+    <div style="margin-top:10px; font-size:0.8em; text-align:right;">
+        <a href="#" onclick="clearKey()" style="color:#999; text-decoration:none;">重置密钥</a>
+    </div>
+</div>
+
+<script>
+    // --- 配置 ---
+    const API_URL = 'https://api.openai.com/v1/chat/completions'; // 如果用中转，请修改此链接
+    // -----------
+
+    const resultDiv = document.getElementById('result');
+    const setupArea = document.getElementById('setup-area');
+
+    // 获取 URL 参数中的单词
+    function getQueryVariable(variable) {
+        var query = window.location.search.substring(1);
+        var vars = query.split("&");
+        for (var i=0;i<vars.length;i++) {
+            var pair = vars[i].split("=");
+            if(pair[0] == variable){return decodeURIComponent(pair[1]);}
+        }
+        return null;
+    }
+
+    // 保存 Key 到浏览器
+    function saveKey() {
+        const input = document.getElementById('apiKeyInput').value;
+        if(input.startsWith('sk-')) {
+            localStorage.setItem('openai_key', input);
+            setupArea.classList.add('hidden');
+            location.reload(); // 刷新页面重新加载
+        } else {
+            alert('密钥格式看起来不对，通常以 sk- 开头');
+        }
+    }
+
+    // 清除 Key
+    function clearKey() {
+        if(confirm('确定要清除保存的密钥吗？')) {
+            localStorage.removeItem('openai_key');
+            location.reload();
+        }
+    }
+
+    async function main() {
+        const apiKey = localStorage.getItem('openai_key');
+        const word = getQueryVariable("q");
+
+        // 1. 检查是否有 Key
+        if (!apiKey) {
+            resultDiv.innerHTML = "请在下方设置您的 API Key 以开始使用。";
+            setupArea.classList.remove('hidden');
+            return;
+        }
+
+        // 2. 检查是否有单词
+        if (!word) {
+            resultDiv.innerHTML = "等待查询... (请在欧路词典中测试)";
+            return;
+        }
+
+        resultDiv.innerHTML = "🔍 正在思考 " + word + " 的含义...";
+
+        // 3. 发送请求
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-3.5-turbo",
+                    messages: [
+                        {
+                            role: "system", 
+                            content: "你是一个专业的英语学习助手。请简明扼要地解释用户提供的英语单词。包含：1. 中文释义 2. 词根词缀分析（如果有）3. 一个地道的英文例句。使用HTML标签<b>加粗</b>重点。"
+                        },
+                        {role: "user", content: word}
+                    ]
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error.message);
+            }
+            
+            if (data.choices && data.choices.length > 0) {
+                resultDiv.innerHTML = data.choices[0].message.content.replace(/\n/g, '<br>');
+            }
+
+        } catch (error) {
+            resultDiv.innerHTML = `<span class="error">出错啦: ${error.message}</span><br>请检查密钥或网络连接 (国内需使用中转URL)。`;
+        }
+    }
+
+    main();
+</script>
+</body>
+</html>
